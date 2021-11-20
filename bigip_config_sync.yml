@@ -1,5 +1,5 @@
 
-- name: sync configuration on bigip devices
+- name: bigip configuration sync
   hosts: all
   strategy: linear
   
@@ -21,11 +21,13 @@
       set_fact:
         bigip_device: "{{sync_status_results.stdout.0 | regex_search('Recommended\\saction:\\sSynchronize\\s([\\w\\d\\-]+)\\.local\\sto\\sgroup\\s([\\w\\-]+)', '\\1', ignorecase=true) | first}}"
         bigip_device_group: "{{sync_status_results.stdout.0 | regex_search('Recommended\\saction:\\sSynchronize\\s([\\w\\d\\-]+)\\.local\\sto\\sgroup\\s([\\w\\-]+)', '\\2', ignorecase=true) | first}}" 
+      register: set_fact_results
       delegate_to: localhost
+      ignore_errors: yes
       tags:
         - bigip_config_sync
         
-    - name: sync configuration on bigip devices
+    - name: bigip configuration sync
       bigip_configsync_action:
         provider:
           server: "{{ansible_host}}"
@@ -34,7 +36,9 @@
           password: "{{ansible_password}}"
         sync_device_to_group: yes
         device_group: "{{bigip_device_group}}"
-      when: (inventory_hostname is eq bigip_device)
+      when: 
+        - not (set_fact_results is failed)
+        - (inventory_hostname is eq bigip_device)
       delegate_to: localhost
       tags:
         - bigip_config_sync
